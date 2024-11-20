@@ -176,7 +176,7 @@ def func_ParseResults(Results):
     lakeIdx.append(len(rowcounts)+1)
 
     tourneyStats = pd.DataFrame(columns = ['LakeName','Date','BigBass','TotalWeight','WinningWeight',
-                                           'AverageWeight','AvgerageBigBass','Fish','Boats','Dead','Smallies'])
+                                           'AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies'])
     tourneyResults = pd.DataFrame(columns = ['Place','Fish','BigBass','Weight','LakeName','Date'])
     #---process each tourney (lake)
     for idx in range(len(lakeIdx)-1):   
@@ -255,17 +255,16 @@ for url in Results_urls['Result URLs']:
     
     
 #corrections
-keepNames = ['fine lake','long lake (portage)','materson']
-changeNames = ['fine lake - mystery','long lake','mystery lake - materson']
+keepNames = ['fine lake','long lake (portage)','materson lake']
+changeNames = ['fine lake – mystery','long lake','mystery lake – materson']
 mapping = dict(zip(changeNames, keepNames))
-FinalStats['LakeName'] = FinalStats['LakeName'].replace(mapping)
+FinalStats['LakeName'] = FinalStats['LakeName'].replace(changeNames,keepNames)
 FinalResults['LakeName'] = FinalResults['LakeName'].replace(mapping)  
-
 
     
 # save
-FinalStats.to_pickle('FinalStats2023.pkl')
-FinalResults.to_pickle('FinalResults2023.pkl')
+FinalStats.to_pickle('FinalStats2024.pkl')
+FinalResults.to_pickle('FinalResults2024.pkl')
     
     
     

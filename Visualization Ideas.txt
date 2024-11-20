@@ -1,0 +1,23 @@
+TOURNEY STATS - FIXED
+average big bass per lake histogram
+average winning weight per lake histogram
+
+
+TOURNEY STATS - SLICEABLE
+Number of tournaments per lake
+Number / weight of fish per lake
+Ratio of largemouth to smallmouth per lake
+scatter plot of big bass weights
+scatter plot of winning bag weights
+average bag weight
+average big bass weight
+
+
+TOURNEY RESULTS
+Scatter plot of all bag weights
+scatter plot of all big bass weights
+Table showing results
+
+
+
+ 
