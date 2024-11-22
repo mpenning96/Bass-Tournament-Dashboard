@@ -9,11 +9,12 @@ import streamlit as st
 import pandas as pd
 import datetime as dtime
 import plotly.graph_objects as go
-
+import numpy as np
 
 
 
 #-------------------------------FUNCTIONS-----------------------------------------------------------------------------------------------------
+#-------function to load and cache data-------
 @st.cache_data
 def func_LoadData():
     #---load and prepare data
@@ -26,8 +27,6 @@ def func_LoadData():
     TR['Date'] = pd.to_datetime(TR['Date'])
     
     return TR,TS
-    
-
 
 
 #--------------------------MAIN SCRIPT---------------------------------------------------------------------------------------------------------
@@ -55,6 +54,17 @@ st.sidebar.write("Welcome to the bass tournament result dashboard. This tool pro
                      " (such as big bass, winning weight, number of boats, ect.).  \n  \n The 'Tournament Results Explorer' tab will allow the user to dig into the full results"
                          " from each tournament.  \n  \n  Please know any personal information that could identify individuals has been removed from the dataset."
                          "  \n  \n Happy exploring!")
+#change sidebar header font
+st.markdown(
+    """
+    <style>
+    .css-1d391kg {
+        font-size: 24px;  
+        text-decoration: underline; 
+    }
+    </style>
+    """,
+    unsafe_allow_html=True)
 
 st.sidebar.write("")
 st.sidebar.write("")
@@ -71,20 +81,51 @@ with tab1:
     #data slicers
     col1,col2,col3 = st.columns([0.6,0.2,0.2])
     with col1:
-        lakes = st.multiselect(label='Lake Selection',options=['All']+sorted(TS['LakeName'].unique()),default='All')
+        lakes = st.multiselect(label='Lake Selection',options=['All']+sorted(TS['LakeName'].unique()),default='All',max_selections=6)
     with col2:
         months = st.multiselect(label='Month(s)',options=['All','May','June','July','August','September','October'],default='All')
     with col3:
         dateRange = st.date_input(label='Date Range',value=[dtime.datetime(2010,1,1),dtime.datetime(2025,1,1)])
 
     #y variable select and plot
-    col1a, col2a = st.columns([0.15,0.85])
+    col1a, col2a = st.columns([0.15,0.85],vertical_alignment='center')
     with col1a:
-        metric = st.radio(label='Metric to Visualize',options=['Winning Weight','Big Bass','Average Weight',
-                                                      'Average Big Bass','Total Weight','Total Fish',
-                                                      'Number of Boats','Total Dead','Total Smallies'],index=0)
-        metric1 = "".join(metric.split())
+        c1 = st.container() #container for plot options
+        with c1:
+            #add radio buttons for 1st plot metric selection
+            metric = st.radio(label='Metric to Visualize',options=['Winning Bag Weight','Big Bass Weight','Average Bag Weight',
+                                                          'Average Big Bass Weight','Total Fish Weight','Total Fish',
+                                                          'Number of Boats','Total Fish Dead','Total Smallies'],index=0)
+            
+            #increase font size for radio button title
+            st.markdown(
+            """<style>
+            div[class*="stRadio"] > label > div[data-testid="stMarkdownContainer"] > p {
+                font-size: 22px;
+                text-decoration: underline;
+            }
+            </style>
+            """, unsafe_allow_html=True)      
     
+            #map radio button options to dataframe columns
+            columnMappings = {'Winning Bag Weight': 'WinningWeight',
+                              'Big Bass Weight': 'BigBass',
+                              'Average Bag Weight': 'AverageWeight',
+                              'Average Big Bass Weight': 'AverageBigBass',
+                              'Total Fish Weight': 'TotalWeight',
+                              'Total Fish': 'Fish',
+                              'Number of Boats': 'Boats',
+                              'Total Fish Dead': 'Dead',
+                              'Total Smallies': 'Smallies'}
+                    
+            metric1 = columnMappings[metric]
+            
+            
+        #---add "show averages" toggle
+        showAvgLines = st.toggle(label='Show Averages',value=False)
+   
+ 
+        
     #--prep data for plotting
     #apply lake slicer
     if 'All' not in lakes: 
@@ -107,26 +148,31 @@ with tab1:
         fig_line_plot = go.Figure() #create figure 
         bgc = 'black'
         gc = 'silver'
-        if len(lakes) < 9: # if there are 8 or less lakes selected, plot data in different colors as line plots, otherwise, mass scatter
-            colors = ['steelblue','indianred','mediumseagreen','goldenrod','rebeccapurple','orange','slategray','aquamarine']
+        colors = ['steelblue','indianred','mediumseagreen','goldenrod','rebeccapurple','darkslategrey']
+        if (len(lakes) < 7) and ('All' not in lakes): # if there are 6 or less lakes selected, plot data in different colors as line plots, otherwise, mass scatter    
+            legStatus = True    
             for idx,lake in enumerate(lakes):
                 dtemp = TS3[TS3['LakeName']==lake].sort_values(by='Date')
                 X = dtemp['Date']
                 Y = dtemp[metric1]
-                fig_line_plot.add_trace(go.Scatter(mode='lines+markers',x=X, y=Y, name=lake, line=dict(color=colors[idx]), marker=dict(color=colors[idx])))
-            
+                fig_line_plot.add_trace(go.Scatter(mode='lines+markers',x=X, y=Y, name=lake, line=dict(color=colors[idx],width=3), marker=dict(color=colors[idx],size=8)))
+                if showAvgLines:
+                    fig_line_plot.add_hline(y=np.mean(Y), line=dict(color=colors[idx], width=2, dash="dash"))
+                
         else:   
             X = TS3['Date']
             Y = TS3[metric1]
-            fig_line_plot.add_trace(go.Scatter(mode='markers',x=X, y=Y, name='Multiple',  marker=dict(color=colors[0],size=10)))
-            
-            
-            
-        fig_line_plot.update_layout(xaxis=dict(type='date',color=gc),showlegend=True)
+            fig_line_plot.add_trace(go.Scatter(mode='markers',x=X, y=Y,  marker=dict(color=colors[0],size=6)))
+            if showAvgLines:
+                fig_line_plot.add_hline(y=np.mean(Y), line=dict(color=colors[0], width=2, dash="dash"))
+            legStatus = False
+              
+        fig_line_plot.update_layout(xaxis=dict(type='date',color=gc),showlegend=legStatus)
         fig_line_plot.update_xaxes(gridcolor=gc,mirror=True,ticks='outside',showline=True)
         fig_line_plot.update_yaxes(gridcolor=gc,mirror=True,ticks='outside',showline=True)
-        fig_line_plot.update_layout(title_text=f"{metric} vs. Date",plot_bgcolor=bgc,margin=dict(l=60, r=60, t=120, b=40))
-        fig_line_plot.update_layout(title=dict(yanchor='top',y=0.8,font=dict(size=28)))
+        fig_line_plot.update_layout(title_text=f"{metric} vs. Date",plot_bgcolor=bgc,margin=dict(l=60, r=60, t=80, b=40))
+        fig_line_plot.update_layout(title=dict(yanchor='top',y=0.9,font=dict(size=24)))
+        
         st.plotly_chart(fig_line_plot,use_container_width=True,theme=None) #main line plot
     
 
