@@ -94,7 +94,6 @@ def func_FetchResults(url):
             tables = soup.find_all('table')
             
             if tables:
-                print(f"Found {len(tables)} tables on the page.")
                 
                 # Iterate over each table and convert it into a pandas DataFrame
                 for i, table in enumerate(tables):
@@ -131,16 +130,9 @@ def func_FetchResults(url):
 
 #------------FUNCTION to find the coordinates of a string in a dataframe------
 def func_FindIndex(df,text):
-    # positions = []
-    # for row_idx, row in df.iterrows():
-    #     for col_idx in df.columns:
-    #         if df.at[row_idx, col_idx].lower() == text.lower():
-    #             positions.append((row_idx, col_idx))
-    # return positions
-    
     coordinates = [(row_idx, col) for col in df.columns 
                for row_idx in df.index 
-               if text in str(df.at[row_idx, col])]
+               if text.strip().lower() == re.sub(r'[^a-zA-Z\s]', '',str(df.at[row_idx, col])).strip().lower()] #remove any accidental special charachters from text, strip trialing/leading whitespace, convert to lowercase
     return coordinates
 #----------------------------------------------------------------------------
 
@@ -150,7 +142,7 @@ def func_FindIndex(df,text):
 
 #------FUNCTION to find the neighbor one column to the right of a string in a dataframe-----
 def func_FindNeighbor(df,text):
-    positions = func_FindIndex(df,text)
+    positions = func_FindIndex(df,text) 
     if len(positions)==0:
         neighbor = ''
     else:
@@ -176,7 +168,7 @@ def func_ParseResults(Results):
     lakeIdx.append(len(rowcounts)+1)
 
     tourneyStats = pd.DataFrame(columns = ['LakeName','Date','BigBass','TotalWeight','WinningWeight',
-                                           'AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies'])
+                                           'AverageWeight','AverageBigBass','AverageFishPerBoat','Fish','Boats','Dead','Smallies','Smallie Percentage'])
     tourneyResults = pd.DataFrame(columns = ['Place','Fish','BigBass','Weight','LakeName','Date'])
     #---process each tourney (lake)
     for idx in range(len(lakeIdx)-1):   
@@ -219,13 +211,48 @@ def func_ParseResults(Results):
         tourneyRow['LakeName'] = lake
         tourneyRow['Date'] = date
         
+        
+        #3a) redundant checks for stats entries  
+        fishTR = sum(tourneyRow['Fish'])
+        if abs(fishTR-float(fish)) > 0:
+            print(f"mismatch in FISH for {lake} on {date} \n {fish} (original) vs {fishTR} (calculated)")
+            fish = fishTR #correct fish
+        weightTR = sum(tourneyRow['Weight'])
+        if abs(weightTR-float(weight)) > 3:
+            print(f"mismatch in WEIGHT for {lake} on {date} \n {weight} (original) vs {weightTR} (calculated)")
+            weight = weightTR #correct weight
+        boatsTR = len(tourneyRow)
+        if abs(boatsTR-float(boats)) > 0:
+            print(f"mismatch in BOATS for {lake} on {date} \n {boats} (original) vs {boatsTR} (calculated)")
+            boats = boatsTR #correct boats
+        bigbassTR = max(tourneyRow['BigBass'])
+        if abs(bigbassTR-float(BB)) > 0.1:
+            print(f"mismatch in BIG BASS for {lake} on {date} \n {BB} (original) vs {bigbassTR} (calculated)")
+            BB = bigbassTR #correct big bass
+        
+        
+        
+        
+        
         # 4) append values to dataframes
         winningweight = tourneyRow['Weight'].iloc[0]
         avgweight = np.mean(tourneyRow['Weight'])
         avgBB = np.mean(tourneyRow.loc[tourneyRow['BigBass']>0,'BigBass'])
-        myRow = [lake,date,BB,weight,winningweight,avgweight,avgBB,fish,boats,dead,smallies]
+        try:
+            avgFPB = float(fish)/float(boats)
+        except Exception:
+            avgFPB = None
+        try:
+            smalliePct = 100*float(smallies)/float(fish)
+        except Exception:
+            smalliePct = 0
+                
+        myRow = [lake,date,BB,weight,winningweight,avgweight,avgBB,avgFPB,fish,boats,dead,smallies,smalliePct]
         tourneyStats.loc[len(tourneyStats),:] = myRow
+        tourneyRow = tourneyRow.dropna(axis=1, how='all')  
+        tourneyResults = tourneyResults.dropna(axis=1, how='all')  
         tourneyResults = pd.concat([tourneyRow,tourneyResults],ignore_index=True)
+        
 
         
     return tourneyStats, tourneyResults
@@ -254,12 +281,17 @@ for url in Results_urls['Result URLs']:
     FinalResults = pd.concat([FinalResults,Tresults],ignore_index=True)
     
     
-#corrections
-keepNames = ['fine lake','long lake (portage)','materson lake']
-changeNames = ['fine lake – mystery','long lake','mystery lake – materson']
+#lake name standardizations
+keepNames = ['fine lake','long lake (portage)','materson lake','croton pond']
+changeNames = ['fine lake – mystery','long lake','mystery lake – materson','croton pond – 2022 saturday classic']
 mapping = dict(zip(changeNames, keepNames))
 FinalStats['LakeName'] = FinalStats['LakeName'].replace(changeNames,keepNames)
 FinalResults['LakeName'] = FinalResults['LakeName'].replace(mapping)  
+
+#convert '0' smallie data prior to 2017 when it wasn't tracked to nan
+FinalStats.loc[FinalStats['Date'] < datetime(2018,1,1),'Smallies'] = None
+FinalStats.loc[FinalStats['Date'] < datetime(2018,1,1),'Smallie Percentage'] = None
+
 
     
 # save
