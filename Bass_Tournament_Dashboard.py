@@ -10,6 +10,7 @@ import pandas as pd
 import datetime as dtime
 import plotly.graph_objects as go
 import numpy as np
+import streamlit_vertical_slider as svs
 
 
 
@@ -69,14 +70,26 @@ st.markdown(
 st.sidebar.write("")
 st.sidebar.write("")
 st.sidebar.write("")
-st.sidebar.write(f"Tournaments Held: {len(TS)}")
-st.sidebar.write(f"Lakes Fished: {len(TS['LakeName'].unique())}")
-st.sidebar.write(f"Fish Caught: {sum(TR['Fish'])} ({round(sum(TR['Weight']))} lbs!)")
-st.sidebar.write(f"Biggest Bass to Date: {max(TR['BigBass'])} lbs")
+st.sidebar.write(f"<b>Tournaments Held: {len(TS)}</b>",unsafe_allow_html=True)
+st.sidebar.write(f"<b>Lakes Fished: {len(TS['LakeName'].unique())}</b>",unsafe_allow_html=True)
+st.sidebar.write(f"<b>Fish Caught: {sum(TR['Fish'])} ({round(sum(TR['Weight']))} lbs!)</b>",unsafe_allow_html=True)
+st.sidebar.write(f"<b>Biggest Bass to Date: {max(TR['BigBass'])} lbs</b>",unsafe_allow_html=True)
+st.sidebar.write("")
+with st.sidebar:
+    minTourneys = st.number_input(label='Minimum Tournaments per Lake',min_value=1,max_value=15,value=3)
+
+#filter out lakes that don't meet the minimum tourney requirement 
+keepLakes = []
+for lake in TS['LakeName'].unique():
+    rows = len(TS.loc[TS['LakeName']==lake,'LakeName'])
+    if rows >= minTourneys:
+        keepLakes.append(lake)
+
+TS = TS.loc[TS['LakeName'].isin(keepLakes),:]
 
 
 
-#---LAKE STATISTICS TAB
+#---LAKE STATISTICS TAB---
 with tab1:
     #---data slicer input widgets
     col1,col2,col3 = st.columns([0.6,0.2,0.2])
@@ -86,6 +99,7 @@ with tab1:
         months = st.multiselect(label='Month(s)',options=['All','May','June','July','August','September','October'],default='All')
     with col3:
         dateRange = st.date_input(label='Date Range',value=[dtime.datetime(2010,1,1),dtime.datetime(2025,1,1)])
+        
 
     #---create "metric to visualize" widget (column 1)
     col1a, col2a = st.columns([0.15,0.85],vertical_alignment='center')
@@ -128,20 +142,20 @@ with tab1:
         showAvgLines = st.toggle(label='Show Averages',value=False)
    
         
-    #--prep data for plotting
-    #apply lake slicer
-    if 'All' not in lakes: 
-        TS1 = TS[TS['LakeName'].isin(lakes)]
-    else:
-        TS1 = TS
-        
+    #--prep data for plotting   
     #apply date range slicer    
-    TS2 = TS1[(TS1['Date']>=pd.to_datetime(dateRange[0])) & (TS1['Date']<=pd.to_datetime(dateRange[1]))] 
+    TS1 = TS[(TS['Date']>=pd.to_datetime(dateRange[0])) & (TS['Date']<=pd.to_datetime(dateRange[1]))] 
     
     #apply month slicer
     if 'All' not in months:
-        DFmonths = TS2['Date'].dt.month_name()
-        TS3 = TS2[DFmonths.isin(months)]
+        DFmonths = TS1['Date'].dt.month_name()
+        TS2 = TS1[DFmonths.isin(months)]
+    else:
+        TS2 = TS1
+        
+    #apply lake slicer
+    if 'All' not in lakes: 
+        TS3 = TS2[TS2['LakeName'].isin(lakes)]
     else:
         TS3 = TS2
     
@@ -227,10 +241,38 @@ with tab1:
             
             st.plotly_chart(fig_radar_plot,use_container_width=True,theme=None) #radar plot
             
+    
+    #---create average lake metric bar chart and slider
+    with col2b: 
+        #prep data (average metric for each lake)
+        labels = []
+        values = []
+        dmetric = TS2.loc[TS2[metric1].notna(),['LakeName',metric1]]
+        for lake in TS2['LakeName'].unique():
+            labels.append(lake)
+            values.append(round(np.mean(dmetric.loc[dmetric['LakeName']==lake,metric1]),2))
         
+        barData = pd.DataFrame({'labels':labels,'values':values}) # put in dataframe so we can sort
+        barDataS = barData.sort_values(by='values',ascending=False)
         
+        #create visuals
+        c1 = st.container()
+        col1, col2, col3 = st.columns([1, 4, 1]) #create columns to "pad" slider widget
+        with col2:
+            #slider to choose how many bars to show (for more/less resolution)
+            max_bars = st.slider("Number of Bars Shown",min_value=5, max_value=20,value=12)
+            barDataT = barDataS.head(max_bars)
         
+        #bar chart
         
+        with c1:
+            #create and format bar chart
+            bar_fig = go.Figure()
+            bar_fig.add_trace(go.Bar(x=barDataT['labels'],y=barDataT['values'],marker_color=colors[0]))
+            bar_fig.update_layout(title_text=f'<u>Top Lakes by Averaged Metric: <i>{metric}</i></u>', title=dict(yanchor='top',y=0.9,font=dict(size=22))) #title options
+            bar_fig.update_layout(plot_bgcolor=bgc,margin=dict(l=80, r=80, t=80, b=70),yaxis_title=units)
+            st.plotly_chart(bar_fig,use_container_width=True,theme=None) #radar plot
+                        
 
         
         
@@ -241,10 +283,7 @@ with tab1:
         
         
         
-        
-        
-        
-        
+
         
         
         
