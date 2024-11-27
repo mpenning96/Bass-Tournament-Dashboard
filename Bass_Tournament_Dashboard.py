@@ -19,10 +19,10 @@ import streamlit_vertical_slider as svs
 @st.cache_data
 def func_LoadData():
     #---load and prepare data
-    TS = pd.read_pickle('S:\\Python Projects\\Bass Tournament Web Scraping\\FinalStats2024.pkl')
+    TS = pd.read_pickle('FinalStats2024.pkl')
     TS.replace('','0',inplace=True)
     TS[['BigBass','TotalWeight','WinningWeight','AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies']] = TS[['BigBass','TotalWeight','WinningWeight','AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies']].astype(float)
-    TR = pd.read_pickle('S:\\Python Projects\\Bass Tournament Web Scraping\\FinalResults2024.pkl')
+    TR = pd.read_pickle('FinalResults2024.pkl')
     #sandardize datetime channels
     TS['Date'] = pd.to_datetime(TS['Date'])
     TR['Date'] = pd.to_datetime(TR['Date'])
