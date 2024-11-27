@@ -263,17 +263,23 @@ with tab1:
             max_bars = st.slider("Number of Bars Shown",min_value=5, max_value=20,value=12)
             barDataT = barDataS.head(max_bars)
         
-        #bar chart
         
+        #determine bar chart lower Y limit
+        spread = max(barDataT['values']) - min(barDataT['values'])
+        ylow = max([max(barDataT['values']) - 1.2*spread,0])
+        yhigh = max(barDataT['values']) + 0.1*spread
+        
+        #create bar chart    
         with c1:
             #create and format bar chart
             bar_fig = go.Figure()
             bar_fig.add_trace(go.Bar(x=barDataT['labels'],y=barDataT['values'],marker_color=colors[0]))
             bar_fig.update_layout(title_text=f'<u>Top Lakes by Averaged Metric: <i>{metric}</i></u>', title=dict(yanchor='top',y=0.9,font=dict(size=22))) #title options
             bar_fig.update_layout(plot_bgcolor=bgc,margin=dict(l=80, r=80, t=80, b=70),yaxis_title=units)
+            bar_fig.update_layout(yaxis=dict(range=[ylow,yhigh]))
             st.plotly_chart(bar_fig,use_container_width=True,theme=None) #radar plot
                         
-
+            
         
         
         
