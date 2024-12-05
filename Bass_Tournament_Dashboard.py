@@ -20,11 +20,14 @@ def func_LoadData():
     #---load and prepare data
     TS = pd.read_pickle('FinalStats2024.pkl')
     TS.replace('','0',inplace=True)
-    TS[['BigBass','TotalWeight','WinningWeight','AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies']] = TS[['BigBass','TotalWeight','WinningWeight','AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies']].astype(float)
+    TS[['BigBass','TotalWeight','WinningWeight','AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies','Smallie Percentage']] = TS[['BigBass','TotalWeight','WinningWeight','AverageWeight','AverageBigBass','Fish','Boats','Dead','Smallies','Smallie Percentage']].astype(float)
     TR = pd.read_pickle('FinalResults2024.pkl')
     #sandardize datetime channels
     TS['Date'] = pd.to_datetime(TS['Date'])
     TR['Date'] = pd.to_datetime(TR['Date'])
+    #remove any duplicates (sometimes mining can be messy)
+    TS = TS.drop_duplicates(subset=['Date','LakeName'])
+    TR = TR.drop_duplicates(subset=['Date','LakeName','Weight','BigBass','Fish','Place'])
     
     
     #---add lake scoring index metric
@@ -36,7 +39,8 @@ def func_LoadData():
             val = (row[metric] - min(TS[metric])) / (max(TS[metric])-min(TS[metric])) #normalize value to a range of 0-1
             scores.append(val*weights[idxW])   
         TS.loc[idx,'LakeScore'] = round(sum(scores),2)
-
+        
+    TS['LakeScore'] = TS['LakeScore'].fillna(0)
     return TR,TS
 
 
@@ -117,9 +121,10 @@ with tab1:
         c1 = st.container() #container for plot options
         with c1:
             #add radio buttons for 1st plot metric selection
-            metric = st.radio(label='Metric to Visualize',options=['Winning Bag Weight','Big Bass Weight','Average Bag Weight',
+            metricOptions = ['Winning Bag Weight','Big Bass Weight','Average Bag Weight',
                                                           'Average Big Bass Weight','Average Fish per Boat','Total Fish Weight','Total Fish',
-                                                          'Number of Boats','Total Fish Dead','Total Smallmouth','Percent Smallmouth','Lake Score'],index=0)
+                                                          'Number of Boats','Total Fish Dead','Total Smallmouth','Percent Smallmouth','Lake Score']
+            metric = st.radio(label='Metric to Visualize',options=metricOptions,index=0)
             
             #increase font size for radio button title
             st.markdown(
@@ -296,23 +301,52 @@ with tab1:
         
         
         
+#---TOURNAMENT RESULT EXPLORER TAB---       
+with tab2:
+    #---data slicer input widgets
+    col1,col2 = st.columns([0.2,0.8])
+    with col1:
+        lake = st.selectbox(label='Lake Selection',options=sorted(TS['LakeName'].unique()))
+        dateoptions = TS.loc[TS['LakeName']==lake,['Date','WinningWeight','BigBass','LakeScore','Boats']].sort_values(by='Date',ascending=False)
+        optionsStrings = [f"""Tournament Date: {row['Date'].strftime('%m-%d-%Y')} \u00A0\u00A0\u00A0
+                          Winning Weight: {str(row['WinningWeight'])} \u00A0\u00A0\u00A0
+                          Big Bass: {str(row['BigBass'])} \u00A0\u00A0\u00A0
+                          Lake Score: {str(row['LakeScore'])} \u00A0\u00A0\u00A0
+                          Number of Boats: {str(int(row['Boats']))}""" #create a selection list of dates and basic metris for quick reference
+                          for idx,row in dateoptions.iterrows()]
+    with col2:
+        dateString = st.selectbox(label='Date Selection',options=optionsStrings)
+        date = dtime.datetime.strptime(dateString.split()[2], "%m-%d-%Y")
+        
+        #select data
+        TRidx = (TR['LakeName']==lake) & (TR['Date']==date)
+        TRdata = TR[TRidx].reset_index()
+        TSidx = (TS['LakeName']==lake) & (TS['Date']==date)
+        TSdata = TS[TSidx].reset_index()
+        
+        
+        
+    #---metrics display and bar chart
+    col1a,col2a = st.columns([0.3,0.7])
+    with col1a:    #create horizontal bar chart for tourney stats
+        bar_fig = go.Figure()
+        xdata = []
+        xdata_raw = []
+        for x in metricOptions[::-1]: #normalize data so it can all be plotted on the same axis
+            xkey = columnMappings[x][0] 
+            xdata_raw.append(round(TSdata[xkey][0],2))  
+            xdata.append(round((TSdata[xkey][0] - min(TS[xkey])) / (max(TS[xkey])-min(TS[xkey])),2)) #normalize value to a range of 0-1
+                                  
+        bar_fig.add_trace(go.Bar(x=xdata,y=metricOptions[::-1],marker_color=colors[0],orientation='h',text=xdata_raw,hoverinfo='text',customdata=xdata_raw,textposition='outside'))
+        bar_fig.update_layout(title_text='<u>Tournament Statistics<u>', title=dict(yanchor='top',y=0.9,font=dict(size=22))) #title options
+        bar_fig.update_layout(plot_bgcolor=bgc,margin=dict(l=130, r=80, t=80, b=70))
+        bar_fig.update_layout(xaxis=dict(range=[0,1.2],tickvals=[0, 0.5, 1],ticktext=['Min','Median','Max']))
+        st.plotly_chart(bar_fig,use_container_width=True,theme=None) #radar plot
         
         
         
         
-        
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+    
         
         
         
