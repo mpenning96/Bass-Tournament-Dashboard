@@ -10,7 +10,6 @@ import pandas as pd
 import datetime as dtime
 import plotly.graph_objects as go
 import numpy as np
-import streamlit_vertical_slider as svs
 
 
 
@@ -27,6 +26,17 @@ def func_LoadData():
     TS['Date'] = pd.to_datetime(TS['Date'])
     TR['Date'] = pd.to_datetime(TR['Date'])
     
+    
+    #---add lake scoring index metric
+    weights = [1.25,3,2.25,1.5,2]
+    metrics = ['BigBass','WinningWeight','AverageWeight','AverageBigBass','AverageFishPerBoat']
+    for idx,row in TS.iterrows():
+        scores = []
+        for idxW,metric in enumerate(metrics):
+            val = (row[metric] - min(TS[metric])) / (max(TS[metric])-min(TS[metric])) #normalize value to a range of 0-1
+            scores.append(val*weights[idxW])   
+        TS.loc[idx,'LakeScore'] = round(sum(scores),2)
+
     return TR,TS
 
 
@@ -109,7 +119,7 @@ with tab1:
             #add radio buttons for 1st plot metric selection
             metric = st.radio(label='Metric to Visualize',options=['Winning Bag Weight','Big Bass Weight','Average Bag Weight',
                                                           'Average Big Bass Weight','Average Fish per Boat','Total Fish Weight','Total Fish',
-                                                          'Number of Boats','Total Fish Dead','Total Smallmouth','Percent Smallmouth'],index=0)
+                                                          'Number of Boats','Total Fish Dead','Total Smallmouth','Percent Smallmouth','Lake Score'],index=0)
             
             #increase font size for radio button title
             st.markdown(
@@ -132,7 +142,8 @@ with tab1:
                               'Average Fish per Boat':['AverageFishPerBoat','Fish'],
                               'Total Fish Dead': ['Dead','Fish'],
                               'Total Smallmouth': ['Smallies','Fish'],
-                              'Percent Smallmouth':['Smallie Percentage','%']}
+                              'Percent Smallmouth':['Smallie Percentage','%'],
+                              'Lake Score':['LakeScore','points']}
                     
             metric1 = columnMappings[metric][0]
             units = columnMappings[metric][1]
@@ -147,14 +158,14 @@ with tab1:
     TS1 = TS[(TS['Date']>=pd.to_datetime(dateRange[0])) & (TS['Date']<=pd.to_datetime(dateRange[1]))] 
     
     #apply month slicer
-    if 'All' not in months:
+    if 'All' not in months and len(months)>0:
         DFmonths = TS1['Date'].dt.month_name()
         TS2 = TS1[DFmonths.isin(months)]
     else:
         TS2 = TS1
         
     #apply lake slicer
-    if 'All' not in lakes: 
+    if 'All' not in lakes and len(lakes)>0: 
         TS3 = TS2[TS2['LakeName'].isin(lakes)]
     else:
         TS3 = TS2
@@ -179,7 +190,8 @@ with tab1:
         else:   
             X = TS3['Date']
             Y = TS3[metric1]
-            fig_line_plot.add_trace(go.Scatter(mode='markers',x=X, y=Y,  marker=dict(color=colors[0],size=6)))
+            labels = TS3['LakeName']
+            fig_line_plot.add_trace(go.Scatter(mode='markers',x=X, y=Y,  marker=dict(color=colors[0],size=6), text=labels, hoverinfo='x+y+text'))
             if showAvgLines:
                 fig_line_plot.add_hline(y=np.mean(Y), line=dict(color=colors[0], width=2, dash="dash"))
             legStatus = False
@@ -203,7 +215,7 @@ with tab1:
             gc = 'dimgrey'
             colors = ['steelblue','indianred','mediumseagreen','goldenrod','rebeccapurple','darkslategrey']
             #set metrics for radar chart and corresponding dataframe column names
-            radarMetrics = ['Winning Bag Weight','Average Bag Weight','Big Bass Weight','Average Big Bass Weight','Average Fish per Boat','Winning Bag Weight']
+            radarMetrics = ['Winning Bag Weight','Average Bag Weight','Big Bass Weight','Average Big Bass Weight','Average Fish per Boat','Lake Score','Winning Bag Weight']
             radarCols = [columnMappings[x][0] for x in radarMetrics]
             #get max/min values for each column to scale radar chart data to effectively set the range
             metricRangesHigh = [1.1*max(TS3.loc[TS3[col].notna(),col]) for col in radarCols]
