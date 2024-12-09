@@ -339,12 +339,22 @@ with tab2:
                                   
         bar_fig.add_trace(go.Bar(x=xdata,y=metricOptions[::-1],marker_color=colors[0],orientation='h',text=xdata_raw,hoverinfo='text',customdata=xdata_raw,textposition='outside'))
         bar_fig.update_layout(title_text='<u>Tournament Statistics<u>', title=dict(yanchor='top',y=0.9,font=dict(size=22))) #title options
-        bar_fig.update_layout(plot_bgcolor=bgc,margin=dict(l=130, r=80, t=80, b=70))
+        bar_fig.update_layout(plot_bgcolor=bgc,margin=dict(l=140, r=40, t=80, b=70),height=600)
         bar_fig.update_layout(xaxis=dict(range=[0,1.2],tickvals=[0, 0.5, 1],ticktext=['Min','Median','Max']))
-        st.plotly_chart(bar_fig,use_container_width=True,theme=None) #radar plot
+        st.plotly_chart(bar_fig,use_container_width=True,theme=None) 
         
-        
-        
+    with col2a:     #create weights/BB bar chart
+        results_fig = go.Figure()
+        results_fig.add_trace(go.Bar(y=TRdata['Weight'],x=TRdata['Place'],marker_color=colors[0],text=TRdata['Weight'],
+                                     name='Total Weight',customdata=TRdata['Fish'], 
+                                     hovertemplate='Total Weight: %{y}<br>Number of Fish: %{customdata} <extra></extra>'))
+        results_fig.add_trace(go.Bar(y=TRdata['BigBass'],x=TRdata['Place'],marker_color=colors[1],text=TRdata['BigBass'],name='Big Bass Weight',
+                                     hovertemplate='Big Bass: %{y} <extra></extra>'))
+        results_fig.update_layout(title_text='<u>Tournament Results<u>', title=dict(yanchor='top',y=0.9,font=dict(size=22))) #title options
+        results_fig.update_layout(plot_bgcolor=bgc,margin=dict(l=40, r=0, t=80, b=70),height=600)
+        results_fig.update_layout(legend=dict(x=1,y=1,xanchor='right',yanchor='top',bordercolor='black',borderwidth=1))
+        results_fig.update_layout(barmode='overlay',xaxis_title='Place',yaxis_title='Lbs',xaxis=dict(range=[0,len(TRdata)+1],tickvals=np.array(range(1,len(TRdata)+1))))
+        st.plotly_chart(results_fig,use_container_width=True,theme=None) 
         
     
         
